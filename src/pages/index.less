@@ -1,0 +1,61 @@
+
+
+@font-face {
+    font-family: 'iconfont';
+    src: url('./iconfont/iconfont.eot');
+    src: url('./iconfont/iconfont.eot?#iefix') format('embedded-opentype'),
+        url('./iconfont/iconfont.woff2') format('woff2'),
+        url('./iconfont/iconfont.woff') format('woff'),
+        url('./iconfont/iconfont.ttf') format('truetype'),
+        url('./iconfont/iconfont.svg#iconfont') format('svg');
+  }
+
+.editor-base() {
+    border: 1px solid rgba(0,0,0,.3);
+    border-radius: 5px;
+    flex-basis: 49%;
+    min-height: 400px;
+    box-sizing: border-box;
+}
+
+.iconfont {
+    font-family: "iconfont" !important;
+    font-size: 16px;
+    font-style: normal;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.panda-markdown-editor {
+    display: flex;
+    margin-top: 30px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+
+    .panda-editor-toolbar {
+        width: 100%;
+        height: 40px;
+        display: flex;
+        border: 1px solid rgba(0,0,0,.3);
+        align-items: center;
+        & i {
+            box-sizing: border-box;
+            padding: 10px;
+            display: inline-block;
+            cursor: pointer;
+            border: 1px solid transparent;
+            &:hover{
+                border-radius: 5px;
+                border: 1px solid #adadad;
+            }
+        }
+    }
+
+    .editor-content{
+        .editor-base();
+    }
+
+    .editor-view {
+        .editor-base()
+    }
+}
