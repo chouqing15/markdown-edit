@@ -3,19 +3,12 @@ import React, { useRef, useState } from "react";
 import marked from "../marked.esm";
 import Style from './index.less';
 
-
-interface IToolbarLabelInValue {
-  bold:{
-    iconText:string;
-    handleFn: (e:any) => void;
-  },
-  // italics:string,
-  // orderedList:string,
-  // unorderedList:string,
-  // title:string,
-  // reference:string,
-  // link:string
+interface IIConConfig {
+  iconText:string;
+  type:string;
+  handleFn: (e:any) => void;
 }
+
 
 const PandaMdEditor = () => {
 
@@ -28,62 +21,86 @@ const PandaMdEditor = () => {
  `
  );
 
-  const textRef = useRef();
+  const textRef = useRef<any>();
 
   const handleChange = (e:any) => {
     setMarkdownValue(e.target.value);
   }
 
   const getSelectionOptions = () => {
-    const selecter = window.getSelection()?.toString();
-    const textareaContext = (textRef.current as any);
+    const { selectionStart, selectionEnd } = (textRef.current as any);
+    const selecter = markdownValue.substring(selectionStart, selectionEnd)
 
     return {
       selecter: selecter,
-      selectionStart: textareaContext.selectionStart,
-      selectionEnd: textareaContext.selectionEnd
+      selectionStart: selectionStart,
+      selectionEnd: selectionEnd
     }
   }
 
-  const selectText = () => {
-    const obj = getSelectionOptions();
-    
-    console.log(obj, window.getSelection()?.toString());return false;
-    // console.log(selecter, selectionStart, selectionEnd);
+  const getButtonHandleValue = (type:string, value:string) => {
+    switch(type){
+      case 'blod':
+        return `**${value}**`;
+      default:
+        return value;
+    }
+  }
 
-    // if(selecter!=null&&selecter.trim()!=""){
-    //   const v = `**${selecter}**`;
-    //   const vv = `${markdownValue.slice(0,selectionStart)}${v}${markdownValue.slice(selectionEnd)}`
-    //   setMarkdownValue(vv);
-    // }
+  const selectText = (type:string = "bold") => {
+    const { selecter, selectionStart, selectionEnd } = getSelectionOptions();
+    const handleValue = getButtonHandleValue(type, selecter);
+
+    if(selecter!=null&&selecter.trim()!=""){
+      const replaceValue = `${markdownValue.slice(0,selectionStart)}${handleValue}${markdownValue.slice(selectionEnd)}`
+      setMarkdownValue(replaceValue);
+    }
   }
 
   // rendertoolbar
 
   const renderToolbar = () => {
-    const toolbarLabelInValue:IToolbarLabelInValue = {
-      bold:{
+    const toolbarOptions:IIConConfig[] = [
+      {
+        type: 'bold',
         iconText:'\ue677',
         handleFn: selectText
-      },
-      // italics:'\ue6f8',
-      // orderedList:'\ue6f0',
-      // unorderedList:'\ue62b',
-      // title:'\ue6e2',
-      // reference:'\ue6f4',
-      // link:'\ue6e6'
-    }
+      },{
+        iconText:'\ue6f8',
+        handleFn: selectText,
+        type:'italics'
+      },{
+        iconText:'\ue6f0',
+        handleFn: selectText,
+        type:'orderedList'
+      },{
+        iconText:'\ue62b',
+        handleFn: selectText,
+        type:'unorderedList'
+      },{
+        iconText:'\ue6e2',
+        handleFn: selectText,
+        type:'title'
+      },{
+        iconText:'\ue6f4',
+        handleFn: selectText,
+        type:'reference'
+      },{
+        iconText:'\ue6e6',
+        handleFn: selectText,
+        type:'link'
+      }
+    ]
     return (
       <div className={Style['panda-editor-toolbar']}>
-        {Object.keys(toolbarLabelInValue).map((toolbarKey:string):JSX.Element => {
-          const item = (toolbarLabelInValue[toolbarKey as keyof IToolbarLabelInValue]);
+        {toolbarOptions.map((toolbar:IIConConfig):JSX.Element => {
           return (
             <i 
               className={Style.iconfont} 
-              key={toolbarKey}
-              onClick={item.handleFn}
+              key={toolbar.type}
+              onClick={toolbar.handleFn.bind(this, toolbar.type)}
             >
-              {item.iconText}
+              {toolbar.iconText}
             </i>
           )
         })}
@@ -94,9 +111,7 @@ const PandaMdEditor = () => {
   return (
     <div className={Style['panda-markdown-editor']}>
       {renderToolbar()}
-      <textarea ref={textRef} value={markdownValue} onChange={handleChange} className={Style['editor-content']}>
-
-      </textarea>
+      <textarea ref={textRef} value={markdownValue} onChange={handleChange} className={Style['editor-content']} />
       <div className={Style['editor-view']} dangerouslySetInnerHTML={{__html: marked(markdownValue)}} />
     </div>
   )
