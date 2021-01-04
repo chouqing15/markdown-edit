@@ -1,63 +1,152 @@
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import marked from "../marked.esm";
 import Style from './index.less';
 
 interface IIConConfig {
   iconText:string;
   type:string;
-  handleFn: (e:any) => void;
+  handleFn: (type:string) => void;
 }
 
+interface ISelectionOption {
+  selected: string,
+  selectionStart: number,
+  selectionEnd: number
+}
+
+marked.setOptions({
+  breaks: true,
+  headerIds:false,
+})
+
+const EventPreventDefault = (e:KeyboardEvent) => {
+  if (e && e.preventDefault) {
+    e.preventDefault()
+  } else {
+    (window.event as Event).returnValue = false
+  }
+}
 
 const PandaMdEditor = () => {
 
-  const [ markdownValue, setMarkdownValue ] = useState(`
-  # 全面推进能源消费方式变革
+  const [ markdownValue, setMarkdownValue ] = useState<string>('');
 
- - 坚持节约资源和保护环境的基本国策。建立了能源消费总量和强度双控制度，把节能指标纳入生态文明、绿色发展等绩效评价体系。党的十八大以来，我国以能源消费年均低于3%的增速支撑了经济中高速增长。非化石能源消费比重在2019年超过15%，**提前一年完成了2020年达到15%左右的目标**。
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
- - 加大产业结构调整力度。大力发展低能耗的先进制造业、高新技术产业、现代服务业，推动传统产业智能化、清洁化改造，工业能效水平进入世界先进行列。提升新建建筑节能标准，深化既有建筑节能改造。构建节能高效的综合交通运输体系，新能源汽车保有量和年新增量均占全球一半以上。推动全民节能，引导树立勤俭节约的消费观。
- `
- );
+  // 处理tab 和 shift-tab
+  const keydown = (e:KeyboardEvent) => {
 
-  const textRef = useRef<any>();
+    if(e.keyCode === 9 && e.shiftKey){
+      EventPreventDefault(e);
+      selectText('shift-tab')
+    }else if(e.keyCode === 9){
+      EventPreventDefault(e);
+      selectText('tab')
+    }
 
-  const handleChange = (e:any) => {
-    setMarkdownValue(e.target.value);
+  };
+
+  useEffect(() => {
+    window.addEventListener('keydown', keydown )
+    return () => {
+      window.removeEventListener('keydown', keydown )
+    }
+  },[markdownValue])
+
+  const handleChange = ({ target : { value }}:React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMarkdownValue(value);
   }
 
-  const getSelectionOptions = () => {
-    const { selectionStart, selectionEnd } = (textRef.current as any);
-    const selecter = markdownValue.substring(selectionStart, selectionEnd)
-
+  // 选中的开始结束位置和文字
+  const getSelectionOptions = ():ISelectionOption => {
+    const { selectionStart, selectionEnd } = textAreaRef.current as HTMLTextAreaElement;
+    const selected:string = markdownValue.substring(selectionStart, selectionEnd)
+    
     return {
-      selecter: selecter,
+      selected: selected,
       selectionStart: selectionStart,
       selectionEnd: selectionEnd
     }
   }
 
-  const getButtonHandleValue = (type:string, value:string) => {
+  // 手动控制 光标位置
+  const setSelectPosition = (start:number, end:number) => {
+    const timer = setTimeout(() => {
+      (textAreaRef.current as HTMLTextAreaElement).focus();
+      (textAreaRef.current as HTMLTextAreaElement).selectionStart = start;
+      (textAreaRef.current as HTMLTextAreaElement).selectionEnd = end;
+      clearTimeout(timer);
+    }, 0);
+  }
+
+   // 点击按钮事件
+  const getButtonHandleValue = (type:string) => {
+    const { selected, selectionStart, selectionEnd } = getSelectionOptions();
+    const valueStart:string = markdownValue.slice(0,selectionStart);
+    const valueEnd:string = markdownValue.slice(selectionEnd);
+    // 百分号后面跟 ** 加粗有问题， 加一个空格
+    const hasTab:string = /%/g.test(selected) ? ' ' : '';
+    const listArr:string[] = selected.split('\n').filter(Boolean);
+
+    const indent:string = '  ';
+
+    const splitValue = (selected:string) => {
+      setSelectPosition(selectionStart + 2, selectionEnd + 2);
+      return `${valueStart}${selected}${valueEnd}`
+    }
+
+    // 处理字体加粗和斜体
+    const handleFontValue = (type:string) => {
+      const sign = type === 'bold' ? '**' : '*';
+      if(listArr.length > 1){
+        return listArr.map((item:string) => {
+          return `${sign}${item}${sign}\n`;
+        }).join('');
+      }else{
+        return `${sign}${selected}${sign}`;
+      }
+    }
+
+    // 处理列表 有序和无序
+    const handleListValue = (type:string) => {
+      if(listArr.length > 1){
+        return listArr.map((item:string, index: number) => {
+          return `${type === 'orderedList' ? `${index + 1}. ` : '- '}${item}\n`
+        }).join('');
+      }
+      return type === 'orderedList' ? '1. ' : '- ';
+    }
+
     switch(type){
-      case 'blod':
-        return `**${value}**`;
+      case 'tab':
+        return splitValue(`${indent + selected.replace(/\n/g, '\n' + indent)}`);
+      case 'shift-tab':
+        if(selected.indexOf(indent) === 0){
+          const reg = new RegExp("\n" + indent + "","g");
+          return splitValue(selected.replace(indent, '').replace(reg, '\n'));
+        }
+        return selected;
+      case 'bold':
+      case 'italics':
+        return splitValue(`${handleFontValue(type)}${hasTab}`);
+      case 'orderedList':
+      case 'unorderedList':
+        return splitValue(handleListValue(type));
+      case 'title':
+      case 'reference':
+        return splitValue(`\n${type === 'title' ? '#' : '>'} ${selected.trim()}\n`);
       default:
-        return value;
+        return selected;
     }
   }
 
-  const selectText = (type:string = "bold") => {
-    const { selecter, selectionStart, selectionEnd } = getSelectionOptions();
-    const handleValue = getButtonHandleValue(type, selecter);
-
-    if(selecter!=null&&selecter.trim()!=""){
-      const replaceValue = `${markdownValue.slice(0,selectionStart)}${handleValue}${markdownValue.slice(selectionEnd)}`
-      setMarkdownValue(replaceValue);
-    }
+  const selectText = (type:string) => {
+    if(!type){ return };
+    setMarkdownValue(getButtonHandleValue(type));
   }
 
-  // rendertoolbar
+  // render toolbar
 
   const renderToolbar = () => {
     const toolbarOptions:IIConConfig[] = [
@@ -108,10 +197,28 @@ const PandaMdEditor = () => {
     )
   }
 
+  const handleKeyDown = (e:React.KeyboardEvent) => {
+    if(e.keyCode === 13){
+      console.log(markdownValue.split('\n').filter(Boolean));
+    }
+    // if(e.keyCode === 13){
+    //   const xxx = markdownValue.split('\n').filter(Boolean);
+    //   const lastValue = xxx[xxx.length - 1]
+    //   if(lastValue.includes('- ') && lastValue.split('- ')[1]){
+    //     setMarkdownValue(`${markdownValue}- `);
+    //   }
+    //   console.log(xxx);
+    //   if(lastValue.includes('- ') && !lastValue.split('- ')[1]){
+    //     xxx.splice(-1,1, '\n');
+    //     setMarkdownValue(xxx.join('\n'));
+    //   }
+    // }
+  }
+
   return (
     <div className={Style['panda-markdown-editor']}>
       {renderToolbar()}
-      <textarea ref={textRef} value={markdownValue} onChange={handleChange} className={Style['editor-content']} />
+      <textarea onKeyUp={handleKeyDown} ref={textAreaRef} value={markdownValue} onChange={handleChange} className={Style['editor-content']} />
       <div className={Style['editor-view']} dangerouslySetInnerHTML={{__html: marked(markdownValue)}} />
     </div>
   )
